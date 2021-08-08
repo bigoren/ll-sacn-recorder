@@ -60,6 +60,6 @@ The above example says:
 - take the the 170 pixels from universe 2, and copy them to string 7 starting at pixel 829. Notice that we begin in pixel 829, and copy 170 pixels, meaning last pixel will be 829+170=999. That would work only if `pixel_in_string` from command line arguments is set to 1000 or above, otherwise we would need to copy data to non-existing pixels.
 - take a single pixel (the first one) from universe 17, and copy it to string 4 on pixel 20 (from string start).
 
-
-
+# Added features
+Discard empty frames at start of recording - Added by Guy Levitsky
     

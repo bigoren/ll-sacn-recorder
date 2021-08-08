@@ -3,13 +3,20 @@ import sacn
 import argparse
 import json
 
-version = "1.0.1"
+version = "1.0.2"
 
 def check_positive_int(value):
     ivalue = int(value)
     if ivalue <= 0:
         raise argparse.ArgumentTypeError("{} is an invalid positive int value".format(value))
     return ivalue
+
+
+def is_empty_bytearray(input_data: bytearray):
+    byte_length = len(input_data)
+    if input_data.count(0) == byte_length:
+        return True
+    return False
 
 
 # program options
@@ -83,6 +90,8 @@ f = open(args.out_file, "w+b")
 recv_uni = set()
 total_frames = 0
 non_manged_uni = set()
+is_beginning = True
+empty_frames = 0
 
 while True:
     raw_data, _= sock.recvfrom(1144)  # 1144 because the longest possible packet
@@ -101,6 +110,15 @@ while True:
 
     arr_range = uni_to_range[current_uni]
     rgb_data[arr_range[0] : arr_range[0] + arr_range[1]] = bytearray(sacn_packet.dmxData[0 : arr_range[1]])
+
+    # don't record empty byte arrays at beginning of file.
+    if is_beginning and is_empty_bytearray(rgb_data):
+        empty_frames += 1
+        continue
+    else:
+        if is_beginning:
+            print("skipped {} empty frames, starting real capture".format(empty_frames))
+        is_beginning = False
 
     #try to find config errors (universe in config which is not reported on network)
     if current_uni in recv_uni:
