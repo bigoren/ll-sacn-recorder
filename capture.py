@@ -2,8 +2,9 @@ import socket
 import sacn
 import argparse
 import json
+from datetime import datetime
 
-version = "1.0.2"
+version = "1.0.3"
 
 def check_positive_int(value):
     ivalue = int(value)
@@ -115,10 +116,16 @@ while True:
     if is_beginning and is_empty_bytearray(rgb_data):
         empty_frames += 1
         continue
-    else:
-        if is_beginning:
-            print("skipped {} empty frames, starting real capture".format(empty_frames))
+    elif is_beginning:
+        # The recording starts here
+        print("skipped {} empty frames, starting real capture".format(empty_frames))
         is_beginning = False
+        start_time = datetime.now()
+
+    # calculating the time delta to milliseconds
+    cur_time = datetime.now() - start_time
+    time_in_millisec = int(cur_time.total_seconds() * 1_000)
+    time_header = time_in_millisec.to_bytes(4, 'little')
 
     #try to find config errors (universe in config which is not reported on network)
     if current_uni in recv_uni:
@@ -130,7 +137,8 @@ while True:
     recv_uni.add(current_uni)
 
     if len(recv_uni) == len(uni_to_range):
-        f.write(rgb_data)
+        payload = time_header + rgb_data
+        f.write(payload)
         total_frames += 1
         if args.frames_to_capture and total_frames >= args.frames_to_capture:
             print("captured {} frames. that's it".format(args.frames_to_capture))
