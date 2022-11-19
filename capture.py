@@ -23,9 +23,9 @@ def is_empty_bytearray(input_data: bytearray):
 # program options
 parser = argparse.ArgumentParser(description='record sACN E1.31 led data, and store it to file')
 parser.add_argument('config_file', type=str,
-                    help='config file that describe which univers to map to which strip')
+                    help='config file describing which universe maps to which strip')
 parser.add_argument('out_file', type=str,
-                    help='file to write frames into')
+                    help='file to write output frames into')
 parser.add_argument('-f, --frames_to_capture', dest='frames_to_capture', action='store', type=check_positive_int,
                     help='if set, app will exit after capturing this amount of frames')
 parser.add_argument('-n, --pixels_per_string', dest='pixels_per_string', action='store', type=check_positive_int,
@@ -105,7 +105,7 @@ while True:
 
     if current_uni not in uni_to_range:
         if current_uni not in non_manged_uni:
-            print("recived a universe '{}' which is not used by the application. ignoring it. this might be a config mistake".format(current_uni))
+            print("received a universe '{}' which is not used by the application. ignoring it. this might be a config mistake".format(current_uni))
             non_manged_uni.add(current_uni)
         continue
 

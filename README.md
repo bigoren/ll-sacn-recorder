@@ -1,17 +1,17 @@
-This is a python3 script, that listen for sACN packets, aggregate them into frames, and write the frames to a givin file.
+This is a python3 script, that listens for sACN packets, aggregates them into frames, and writes the frames to a given file.
 
 # Install
 You need to have python 3 installed on your computer.
-the project uses pipenv for dependency management. you can install pipenv with `pip install pipenv`
-To check that pipenv is intall and found in PATH, run `pipenv --version`.
+The project uses pipenv for dependency management. you can install pipenv with `pip install pipenv`
+To check that pipenv is intalled and found in PATH, run `pipenv --version`.
 Then run pipenv shell to enter the venv.
 
 # Usage
-`python ./capture.py --help` will show help about how to run the program.
+`python ./capture.py --help` will show a help menu about how to run the program.
 
-You need to use config file in json format that describe which univere numbers are expected, how many pixels are hold, and to which stip id, and pixel in pixel within the strip they should be map.
+You need to use a config file in json format that describes which universe numbers are expected, how many pixels it holds, and to which strip id, and pixel in pixel within the strip they should be mapped.
 
-The script will wait for a full frame (e.g. for all the universes in the config file to be received), and then write the frame to the `out_file` (as specify as command line argument).
+The script will wait for a full frame (e.g. for all the universes in the config file to be received), and then write the frame to the `out_file` (as specified in the command line argument).
 
 The frame will always hold exactly `number_of_strings` * `pixels_per_string` pixels, with 3 channels each.
 
