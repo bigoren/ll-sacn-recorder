@@ -1,4 +1,4 @@
-This is a python3 script, that listens for sACN packets, aggregates them into frames, and writes the frames to a given file.
+This is a python3 scripts project, that listens for sACN packets (capture.py) or DDP packets (capture_ddp.py), aggregates them into frames, and writes the frames to a given file.
 
 # Install
 You need to have python 3 installed on your computer.
@@ -7,24 +7,32 @@ To check that pipenv is intalled and found in PATH, run `pipenv --version`.
 Then run pipenv shell to enter the venv.
 
 # Usage
-`python ./capture.py --help` will show a help menu about how to run the program.
+`python ./capture.py --help` will show a help menu about how to run the script.
+`python ./capture_ddp.py --help` also works.
 
-You need to use a config file in json format that describes which universe numbers are expected, how many pixels it holds, and to which strip id, and pixel in pixel within the strip they should be mapped.
+For the sACN script you need to have a config file in json format that describes which universe numbers are expected, how many pixels it holds, to which strip id, and pixel within the strip they should be mapped.
+
+The DDP script doesn't need a config file and reads the required data from the packets header.
 
 The script will wait for a full frame (e.g. for all the universes in the config file to be received), and then write the frame to the `out_file` (as specified in the command line argument).
 
-The frame will always hold exactly `number_of_strings` * `pixels_per_string` pixels, with 3 channels each.
+The sACN script scans the config file to find the `max_pixels_per_string`, the longest string length in all universes.
+The DDP script deduces the longest string length from the packets.
 
-Channels are written to the file in the order they are found in the sACN packet. That means that if you want to change RGB order (according to the order of the physical LEDs), you need to configure the sending application appropriately.
+The frame will always hold exactly `number_of_strings` * `max_pixels_per_string` pixels, with 3 channels each.
+
+Channels are written to the file in the order they are found in the packet. That means that if you want to change RGB order (according to the order of the physical LEDs), you need to configure the sending application appropriately.
 
 If you don't need all strings, or all pixels in a string, just don't configure them in the `config.json` file, and they will not be updated (will just always contain `0`)
 
 ## Stopping
-The program will capture sACN frames as soon as they are receive, and will keep capturing as long as it runs. To stop the program (which will stop writing frames to the file) use `Ctrl + Break` on keyboard (Note that on some keyboards, "Break" is labeled as "Pause").
-You can also use the command line option -f to set the total number of frames which will be written (script will exit automatically once all these frames are captured).
+The sACN script captures sACN frames as they are received, and will keep capturing as long as it runs. To stop the script and writes to the file, use `Ctrl + Break` on keyboard (Note that on some keyboards, "Break" is labeled as "Pause").
+You can also use the command line option -f to set the total number of frames which will be written, the script will exit automatically once all these frames are captured.
+
+The DDP script captures frames for the defined amount of seconds, or if no frames are received for 5 seconds it exits.
 
 ## Config file
-The program should be configured with a json file that maps universes (as sent on sACN packets from applications like xLights or Vixen), to the physical LEDs for display.
+The sACN script requires a json file that maps universes (as sent on sACN packets from applications like xLights or Vixen), to the physical LEDs for display.
 Example file should look like this:
 ```json
 {
@@ -44,7 +52,7 @@ Example file should look like this:
     "num_of_pixels": 1
   }
 }
-``` 
+```
 In the above example, `1\2\17` are the universe numbers. They should match the universes sent on the sACN packets. LED sequence softwares support configuration of this value.
 
 `string_id` is a value in range [0, number_of_strings - 1], for Teensy 3.5, it should be a value in the range 0-7.
@@ -55,11 +63,13 @@ In the above example, `1\2\17` are the universe numbers. They should match the u
 
 `pixel_in_string + num_of_pixels` should be in the range of [0 - pixel_in_string - 1], meaning - we cannot copy more pixels then they are in the string.
 
-The above example says: 
+The above example says:
 - take the first 3 pixels from universe 1, and copy them to string 0 starting at beginning of the string (`"pixel_in_string": 0`)
 - take the the 170 pixels from universe 2, and copy them to string 7 starting at pixel 829. Notice that we begin in pixel 829, and copy 170 pixels, meaning last pixel will be 829+170=999. That would work only if `pixel_in_string` from command line arguments is set to 1000 or above, otherwise we would need to copy data to non-existing pixels.
 - take a single pixel (the first one) from universe 17, and copy it to string 4 on pixel 20 (from string start).
 
 # Added features
-Discard empty frames at start of recording - Added by Guy Levitsky
-    
+* Discard empty frames at start of recording - Added by Guy Levitsky
+* Calculate maximum pixel per string from config file and write it in file - Added by Oren Bigler
+* DDP capture script for DDP packets support with no config file
+

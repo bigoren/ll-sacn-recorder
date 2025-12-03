@@ -4,7 +4,7 @@ import argparse
 import json
 from datetime import datetime
 
-version = "1.0.3"
+version = "1.1.0"
 
 def check_positive_int(value):
     ivalue = int(value)
@@ -40,18 +40,17 @@ parser.add_argument('--addr', dest='addr', action='store', type=str,
 parser.add_argument('--version', action='version', version=version)
 args = parser.parse_args()
 
-# initialize rgb_data to store universe data until a full frame is received
+# initialize constants
 channels_per_pixel = 3
-total_pixels = args.number_of_strings * args.pixels_per_string
-total_channels = total_pixels * channels_per_pixel
-rgb_data = bytearray([0] * total_channels)
 
-# read config data into uni_to_range
+# read config data into uni_to_range and find maximum last_pixel_index
 uni_to_range = {}
+max_last_pixel_index = 0
 with open(args.config_file) as json_file:
     json_data = json.loads(json_file.read())
-    for uni, uni_config in json_data.items():
 
+    # First pass: validate and find maximum last_pixel_index
+    for uni, uni_config in json_data.items():
         string_id = uni_config['string_id']
         if string_id < 0 or string_id >= args.number_of_strings:
             raise ValueError(
@@ -64,20 +63,29 @@ with open(args.config_file) as json_file:
                 "should be <= 170, received: {}".format(uni, num_of_pixels))
 
         pixel_in_string = uni_config['pixel_in_string']
-        last_pixel_index = pixel_in_string + num_of_pixels
         if pixel_in_string < 0:
             raise ValueError("pixel_in_string for universe {} is negative, received: {}".format(uni, pixel_in_string))
-        if last_pixel_index >= args.pixels_per_string:
-            raise ValueError(
-                "pixel_in_string read from config on universe {} file is not in valid range."
-                "the value is {}, and after adding num_of_pixels which is {}, we receive {}, which is >= than "
-                "total number of pixels in string {}"
-                .format(uni, pixel_in_string, num_of_pixels, last_pixel_index, args.pixels_per_string))
 
-        start_index = (string_id * args.pixels_per_string + pixel_in_string) * channels_per_pixel
+        last_pixel_index = pixel_in_string + num_of_pixels
+        max_last_pixel_index = max(max_last_pixel_index, last_pixel_index)
 
+    max_last_pixel_index += 1
+    print("maximum string length across all universes is set to: {}".format(max_last_pixel_index))
+
+    # Second pass: calculate start indices using the final max_last_pixel_index
+    for uni, uni_config in json_data.items():
+        string_id = uni_config['string_id']
+        num_of_pixels = uni_config['num_of_pixels']
+        pixel_in_string = uni_config['pixel_in_string']
+
+        start_index = (string_id * max_last_pixel_index + pixel_in_string) * channels_per_pixel
         num_of_channels = num_of_pixels * channels_per_pixel
         uni_to_range[int(uni)] = (start_index, num_of_channels)
+
+# initialize rgb_data to store universe data until a full frame is received
+total_pixels = args.number_of_strings * max_last_pixel_index
+total_channels = total_pixels * channels_per_pixel
+rgb_data = bytearray([0] * total_channels)
 print("read config file {}, will monitor the following universes: {}".format(args.config_file, list(uni_to_range.keys())))
 if args.frames_to_capture:
     print("will read {} frames and then quit. you can quit earlier if you want.".format(args.frames_to_capture))
@@ -93,6 +101,9 @@ total_frames = 0
 non_manged_uni = set()
 is_beginning = True
 empty_frames = 0
+
+# write the maximum string length at the beginning of the file (2 bytes, little endian)
+f.write(max_last_pixel_index.to_bytes(2, 'little'))
 
 while True:
     raw_data, _= sock.recvfrom(1144)  # 1144 because the longest possible packet
