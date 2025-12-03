@@ -26,8 +26,8 @@ def main():
                         help="number of LED strings to learn string_len for and capture frames for")
     parser.add_argument("-o", "--output", dest="output", type=str, required=True,
                         help="output file to write the max string length header to")
-    parser.add_argument('-f', '--frames_to_capture', dest='frames_to_capture', action='store', type=check_positive_int,
-                        help='if set, app will exit after capturing this amount of frames')
+    parser.add_argument('-t', '--seconds_to_capture', dest='seconds_to_capture', action='store', type=check_positive_int,
+                        help='if set, app will exit after capturing for this many seconds')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true',
                         help='enable debug output')
     args = parser.parse_args()
@@ -53,12 +53,24 @@ def main():
     buffers = {}  # assigned_string -> bytearray buffer
     filled_count = {}  # assigned_string -> int count of filled bytes
     max_bytes = None
+    last_frame_time = None
 
     try:
         while True:
             try:
                 data, addr = sock.recvfrom(65535)
             except socket.timeout:
+                # Check if we've been capturing and haven't received a frame in 5 seconds
+                if collecting and not is_beginning and last_frame_time is not None:
+                    time_since_last_frame = (datetime.now() - last_frame_time).total_seconds()
+                    if time_since_last_frame >= 5.0:
+                        elapsed_time_ms = (last_frame_time - start_time).total_seconds() * 1_000
+                        fps = 1_000 * frames_written / elapsed_time_ms if frames_written > 0 else 0
+                        print(f"\nNo frames received for 5 seconds. Exiting...")
+                        print(f"Captured {frames_written} frames in {elapsed_time_ms:.1f}ms")
+                        if frames_written > 0:
+                            print(f"Average frame rate: {fps:.1f} fps")
+                        return
                 # loop back and allow KeyboardInterrupt to be raised
                 continue
 
@@ -163,6 +175,7 @@ def main():
                 print("skipped {} empty frames, starting real capture".format(empty_frames))
                 is_beginning = False
                 start_time = datetime.now()
+                last_frame_time = datetime.now()
 
             # If we are collecting, attempt to write payloads into the appropriate buffer(s)
             if collecting:
@@ -205,18 +218,23 @@ def main():
                         with open(args.output, "ab") as f:
                             f.write(time_header + frame_data)
 
-                        # Check if we've reached the frame capture limit
+                        # Update last frame time
+                        last_frame_time = datetime.now()
+
+                        # Check if we've reached the time capture limit
                         frames_written += 1
                         if frames_written % 40 == 0:
                             elapsed_time_ms = (datetime.now() - start_time).total_seconds() * 1_000
                             fps = 1_000 * frames_written / elapsed_time_ms
                             print(f"Captured {frames_written} frames in {elapsed_time_ms:.1f}ms ({fps:.1f} fps)")
-                        if args.frames_to_capture and frames_written >= args.frames_to_capture:
-                            elapsed_time_ms = (datetime.now() - start_time).total_seconds() * 1_000
-                            fps = 1_000 * frames_written / elapsed_time_ms
-                            print(f"\nFinished! Captured {frames_written} frames in {elapsed_time_ms:.1f}ms")
-                            print(f"Average frame rate: {fps:.1f} fps")
-                            return
+                        if args.seconds_to_capture:
+                            elapsed_time_s = (datetime.now() - start_time).total_seconds()
+                            if elapsed_time_s >= args.seconds_to_capture:
+                                elapsed_time_ms = elapsed_time_s * 1_000
+                                fps = 1_000 * frames_written / elapsed_time_ms
+                                print(f"\nFinished! Captured {frames_written} frames in {elapsed_time_ms:.1f}ms")
+                                print(f"Average frame rate: {fps:.1f} fps")
+                                return
 
                         # reset buffers and filled counts for next frame
                         for n in buffers:
