@@ -13,12 +13,6 @@ def check_positive_int(value):
         raise argparse.ArgumentTypeError("{} is an invalid positive int value".format(value))
     return ivalue
 
-def is_empty_bytearray(input_data: bytearray):
-    byte_length = len(input_data)
-    if input_data.count(0) == byte_length:
-        return True
-    return False
-
 
 def main():
     parser = argparse.ArgumentParser(description="Listen for DDP packets, determine string_len for N strings and capture f frames of pixel data for those strings")
@@ -47,8 +41,6 @@ def main():
     next_assigned = 1  # running string number assignment
     packets_seen = 0
     start = 0
-    is_beginning = True
-    empty_frames = 0
     collecting = False
     buffers = {}  # assigned_string -> bytearray buffer
     filled_count = {}  # assigned_string -> int count of filled bytes
@@ -61,7 +53,7 @@ def main():
                 data, addr = sock.recvfrom(65535)
             except socket.timeout:
                 # Check if we've been capturing and haven't received a frame in 5 seconds
-                if collecting and not is_beginning and last_frame_time is not None:
+                if collecting and last_frame_time is not None:
                     time_since_last_frame = (datetime.now() - last_frame_time).total_seconds()
                     if time_since_last_frame >= 5.0:
                         elapsed_time_ms = (last_frame_time - start_time).total_seconds() * 1_000
@@ -162,20 +154,11 @@ def main():
                 max_pixels = max_string_len // CHANNELS_PER_PIXEL
                 max_bytes = max_pixels * CHANNELS_PER_PIXEL
                 collecting = True
-                print("Waiting for non empty packets to start capturing frames...")
+                print("Starting to capture frames...")
                 frames_written = 0  # initialize frame counter
-                # continue listening; do not break
-
-            # don't record empty byte arrays at beginning of file.
-            if is_beginning and is_empty_bytearray(payload):
-                empty_frames += 1
-                continue
-            elif is_beginning:
-                # The recording starts here
-                print("skipped {} empty frames, starting real capture".format(empty_frames))
-                is_beginning = False
                 start_time = datetime.now()
                 last_frame_time = datetime.now()
+                # continue listening; do not break
 
             # If we are collecting, attempt to write payloads into the appropriate buffer(s)
             if collecting:
